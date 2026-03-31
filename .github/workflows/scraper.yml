@@ -31,7 +31,7 @@ jobs:
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: python scraper.py --max-pages 10
+        run: python scraper.py --ward 中央区 --test
 
       - name: Commit updated database
         run: |

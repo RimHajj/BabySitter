@@ -647,6 +647,8 @@ def main():
                         help="Force send email ignoring newness/availability check")
     parser.add_argument("--max-pages", type=int, default=None,
                         help="Max listing pages per ward (default: unlimited)")
+    parser.add_argument("--ward", type=str, default=None,
+                        help="Limit scraping to a single ward name e.g. '中央区'")
     parser.add_argument("--db", default=DB_PATH, help="SQLite database path")
     args = parser.parse_args()
 
@@ -675,7 +677,12 @@ def main():
     ward_order.sort(key=lambda x: x[2])
     WARD_MAX_KM = 8.5
     ward_order = [(c, w, d) for c, w, d in ward_order if d <= WARD_MAX_KM]
-    print(f"[wards] {len(ward_order)} wards within {WARD_MAX_KM} km (closest first):")
+    if args.ward:
+        ward_order = [(c, w, d) for c, w, d in ward_order if w == args.ward]
+        if not ward_order:
+            print(f"[error] Ward '{args.ward}' not found or outside {WARD_MAX_KM}km range")
+            sys.exit(1)
+    print(f"[wards] {len(ward_order)} ward(s) to scrape (closest first):")
     for city_id, ward_name, d in ward_order:
         print(f"  {ward_name:6s}  {d:.1f} km")
 
@@ -726,6 +733,7 @@ def main():
         notify_candidates: list[dict] = []
 
         for i, sid in enumerate(to_scrape):
+            print(f"  [profile {i + 1}/{len(to_scrape)}] sitter {sid}", flush=True)
             if args.verbose:
                 print(f"  [{i + 1}/{len(to_scrape)}] sitter {sid}")
 

@@ -218,11 +218,13 @@ def scrape_listings() -> list[dict]:
         page.on("response", on_response)
 
         # ── Load the target page ──────────────────────────────────────────────
+        # Use "domcontentloaded" — the UR site fires continuous background
+        # requests so "networkidle" never fires and times out.
         log.info("Loading %s", TARGET_URL)
-        page.goto(TARGET_URL, wait_until="networkidle", timeout=90_000)
+        page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60_000)
 
-        # Wait a little longer for deferred JS to settle
-        page.wait_for_timeout(3_000)
+        # Give JS time to render listings (analytics pings keep firing)
+        page.wait_for_timeout(8_000)
 
         # ── Collect pages if pagination exists ────────────────────────────────
         for page_num in range(1, 21):   # max 20 pages
@@ -242,8 +244,8 @@ def scrape_listings() -> list[dict]:
                 break
             try:
                 nxt.first.click()
-                page.wait_for_load_state("networkidle", timeout=20_000)
-                page.wait_for_timeout(2_000)
+                page.wait_for_load_state("domcontentloaded", timeout=20_000)
+                page.wait_for_timeout(5_000)
             except Exception as exc:
                 log.debug("Pagination click failed: %s", exc)
                 break
