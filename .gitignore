@@ -5,3 +5,8 @@ __pycache__/
 .claude/
 sitters.db-shm
 sitters.db-wal
+# UR monitor files (belong to the UR-Listings repo, not this one)
+ur_monitor.py
+ur_chuo_listings.db
+last_run.txt
+ur_monitor.log
