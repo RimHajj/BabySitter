@@ -271,15 +271,7 @@ def collect_sitter_ids_from_listing(
                 const cardText = card.innerText || '';
                 const tagline = cardText.trim().split('\\n')[0].slice(0, 200);
 
-                // Check listing card calendar for any available/partial days
-                const hasAvail = (
-                    card.querySelector(
-                        '.penguin-sitter-calendar-body-column-content-square-all-available,' +
-                        '.penguin-sitter-calendar-body-column-content-square-conditinal'
-                    ) !== null
-                );
-
-                results.push({ sid, tagline, cardText, hasAvail });
+                results.push({ sid, tagline, cardText });
             });
             return results;
         }""")
@@ -287,33 +279,24 @@ def collect_sitter_ids_from_listing(
         total_cards = len(card_data or [])
         found = 0
         skipped_inactive = 0
-        skipped_no_avail = 0
         for item in (card_data or []):
-            sid      = item["sid"]
-            tagline  = item["tagline"]
+            sid       = item["sid"]
+            tagline   = item["tagline"]
             card_text = item["cardText"]
-            has_avail = item["hasAvail"]
 
             if any(marker in card_text for marker in INACTIVE_MARKERS):
                 skipped_inactive += 1
                 if verbose:
                     print(f"    skip inactive sitter {sid}")
                 continue
-            if not has_avail:
-                skipped_no_avail += 1
-                if verbose:
-                    print(f"    skip no-avail sitter {sid}")
-                continue
             results.append((sid, tagline))
             found += 1
 
         if verbose or pg % 10 == 0:
-            print(f"  [list] p{pg}: {total_cards} cards, {found} with avail, "
-                  f"{skipped_no_avail} no-avail, {skipped_inactive} inactive",
+            print(f"  [list] p{pg}: {found} sitters ({skipped_inactive} inactive skipped)",
                   flush=True)
 
-        # Stop only when the page returned NO cards at all (true end of pagination).
-        # A page full of no-availability sitters is normal — keep paginating.
+        # Stop when the page returned no sitter cards at all.
         if total_cards == 0:
             if verbose:
                 print(f"  [list] no cards on p{pg}, done with {ward_name}")
