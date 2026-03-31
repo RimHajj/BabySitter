@@ -859,9 +859,25 @@ def main():
             )
             is_new = is_newly_seen(conn, sid)
 
-            # Always require availability — no point emailing about a sitter
-            # with a fully blocked calendar. --test bypasses newness only.
-            if dist is not None and dist <= 5.0 and has_avail and (is_new or args.test):
+            # Check whether any available dates are NEW since yesterday.
+            # A known sitter whose calendar opens up should trigger a notification.
+            prev_avail_dates = set(
+                row[0] for row in conn.execute(
+                    """SELECT DISTINCT date FROM availability
+                       WHERE sitter_id=? AND status IN ('available','partial')
+                         AND scraped_at < date('now')""",
+                    (sid,)
+                ).fetchall()
+            )
+            newly_available = any(
+                d not in prev_avail_dates
+                for d, v in profile["availability"].items()
+                if v in ("available", "partial")
+            )
+
+            # Notify when: sitter within 5km AND has availability AND
+            # (first time seen  OR  calendar newly opened up  OR  --test)
+            if dist is not None and dist <= 5.0 and has_avail and (is_new or newly_available or args.test):
                 notify_candidates.append({
                     "tagline": conn.execute(
                         "SELECT tagline FROM sitters WHERE id=?", (sid,)
