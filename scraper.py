@@ -284,6 +284,7 @@ def collect_sitter_ids_from_listing(
             return results;
         }""")
 
+        total_cards = len(card_data or [])
         found = 0
         skipped_inactive = 0
         skipped_no_avail = 0
@@ -307,11 +308,13 @@ def collect_sitter_ids_from_listing(
             found += 1
 
         if verbose or pg % 10 == 0:
-            print(f"  [list] p{pg}: {found} with avail, "
+            print(f"  [list] p{pg}: {total_cards} cards, {found} with avail, "
                   f"{skipped_no_avail} no-avail, {skipped_inactive} inactive",
                   flush=True)
 
-        if found == 0:
+        # Stop only when the page returned NO cards at all (true end of pagination).
+        # A page full of no-availability sitters is normal — keep paginating.
+        if total_cards == 0:
             if verbose:
                 print(f"  [list] no cards on p{pg}, done with {ward_name}")
             break
