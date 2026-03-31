@@ -5,6 +5,9 @@ on:
     - cron: '0 9 * * *'   # 09:00 UTC = 18:00 JST daily
   workflow_dispatch:        # Manual trigger from GitHub UI any time
 
+permissions:
+  contents: write           # Allow the workflow to push sitters.db back to the repo
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
