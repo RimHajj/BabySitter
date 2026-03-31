@@ -1,0 +1,44 @@
+name: UR Chuo Ward Monitor
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 minutes
+  workflow_dispatch:           # manual "Run workflow" button
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout (persist-credentials so we can push back) ────────────
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      # ── 2. Python ────────────────────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ── 3. Install Python deps + Playwright browser ───────────────────────
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium --with-deps
+
+      # ── 4. Run the monitor ────────────────────────────────────────────────
+      - name: Run monitor
+        env:
+          GMAIL_ADDRESS:      ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_EMAIL:       ${{ secrets.NOTIFY_EMAIL }}
+        run: python ur_monitor.py --once
+
+      # ── 5. Commit updated DB + last_run.txt back to repo ──────────────────
+      - name: Commit state
+        run: |
+          git config user.email "urbot@github"
+          git config user.name  "UR Bot"
+          git add ur_chuo_listings.db last_run.txt
+          git diff --staged --quiet || git commit -m "update listings state"
+          git push
