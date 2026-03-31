@@ -247,29 +247,69 @@ def collect_sitter_ids_from_listing(
                 print(f"  [list] giving up on {url}, skipping ward")
             break
 
-        # Skip cards that explicitly say they are suspended / not accepting
         INACTIVE_MARKERS = ("休止", "受付停止", "受け付けておりません", "お休み中")
-        cards = page.query_selector_all("a[href*='/sitters/']")
+
+        # Extract sitter IDs, taglines, and listing-card availability in one JS pass
+        card_data = page.evaluate("""() => {
+            const results = [];
+            const seen = new Set();
+            document.querySelectorAll('a[href*="/sitters/"]').forEach(a => {
+                const m = a.href.match(/\\/sitters\\/(\\d+)/);
+                if (!m) return;
+                const sid = parseInt(m[1]);
+                if (seen.has(sid)) return;
+                seen.add(sid);
+
+                // Walk up to find the sitter card container
+                let card = a;
+                for (let i = 0; i < 6; i++) {
+                    if (!card.parentElement) break;
+                    card = card.parentElement;
+                    if (card.querySelectorAll('a[href*="/sitters/"]').length === 1) break;
+                }
+
+                const cardText = card.innerText || '';
+                const tagline = cardText.trim().split('\\n')[0].slice(0, 200);
+
+                // Check listing card calendar for any available/partial days
+                const hasAvail = (
+                    card.querySelector(
+                        '.penguin-sitter-calendar-body-column-content-square-all-available,' +
+                        '.penguin-sitter-calendar-body-column-content-square-conditinal'
+                    ) !== null
+                );
+
+                results.push({ sid, tagline, cardText, hasAvail });
+            });
+            return results;
+        }""")
+
         found = 0
-        for card in cards:
-            href = card.get_attribute("href") or ""
-            m = re.search(r"/sitters/(\d+)", href)
-            if not m:
-                continue
-            sid = int(m.group(1))
-            tagline = ""
-            card_text = ""
-            try:
-                card_text = card.inner_text().strip()
-                tagline = card_text.split("\n")[0][:200]
-            except Exception:
-                pass
+        skipped_inactive = 0
+        skipped_no_avail = 0
+        for item in (card_data or []):
+            sid      = item["sid"]
+            tagline  = item["tagline"]
+            card_text = item["cardText"]
+            has_avail = item["hasAvail"]
+
             if any(marker in card_text for marker in INACTIVE_MARKERS):
+                skipped_inactive += 1
                 if verbose:
                     print(f"    skip inactive sitter {sid}")
                 continue
+            if not has_avail:
+                skipped_no_avail += 1
+                if verbose:
+                    print(f"    skip no-avail sitter {sid}")
+                continue
             results.append((sid, tagline))
             found += 1
+
+        if verbose or pg % 10 == 0:
+            print(f"  [list] p{pg}: {found} with avail, "
+                  f"{skipped_no_avail} no-avail, {skipped_inactive} inactive",
+                  flush=True)
 
         if found == 0:
             if verbose:
@@ -662,25 +702,25 @@ def main():
     today = dt.date.today()
     print(f"[start] Scraping smartsitter.jp – {today}")
 
-    # ── Pre-sort wards by distance from Harumi ──────────────────────────────
-    # Geocode each ward centre once (cached), then scrape closest wards first.
-    # With --max-pages this ensures limited scraping budget goes to nearest wards.
-    print("[wards] geocoding ward centres to sort by distance from Harumi …")
-    ward_order: list[tuple[int, str, float]] = []  # (city_id, ward_name, dist_km)
-    for city_id, ward_name in TOKYO_23_WARDS.items():
+    # ── Target wards ─────────────────────────────────────────────────────────
+    # Scrape only these 5 wards. 中央区 also captures sitters based anywhere
+    # in Tokyo who explicitly accept requests in Chuo ward.
+    TARGET_WARDS = {13101: "千代田区", 13102: "中央区",
+                    13103: "港区",    13104: "新宿区", 13108: "江東区"}
+
+    print("[wards] geocoding ward centres …")
+    ward_order: list[tuple[int, str, float]] = []
+    for city_id, ward_name in TARGET_WARDS.items():
         wc = geocode_gsi(f"東京都{ward_name}", conn, args.verbose)
-        if wc:
-            d = haversine(HARUMI_LAT, HARUMI_LON, wc[0], wc[1])
-        else:
-            d = float("inf")
+        d = haversine(HARUMI_LAT, HARUMI_LON, wc[0], wc[1]) if wc else float("inf")
         ward_order.append((city_id, ward_name, d))
     ward_order.sort(key=lambda x: x[2])
-    WARD_MAX_KM = 8.5
-    ward_order = [(c, w, d) for c, w, d in ward_order if d <= WARD_MAX_KM]
+
     if args.ward:
         ward_order = [(c, w, d) for c, w, d in ward_order if w == args.ward]
         if not ward_order:
-            print(f"[error] Ward '{args.ward}' not found or outside {WARD_MAX_KM}km range")
+            print(f"[error] Ward '{args.ward}' not in target list: "
+                  f"{', '.join(TARGET_WARDS.values())}")
             sys.exit(1)
     print(f"[wards] {len(ward_order)} ward(s) to scrape (closest first):")
     for city_id, ward_name, d in ward_order:
