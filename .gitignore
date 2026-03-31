@@ -1,0 +1,7 @@
+debug_profile.html
+__pycache__/
+*.pyc
+.env
+.claude/
+sitters.db-shm
+sitters.db-wal
