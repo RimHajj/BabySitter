@@ -719,6 +719,18 @@ def main():
         )
         page = ctx.new_page()
 
+        # Block images, fonts, media and analytics — we only need HTML/DOM.
+        # This alone can cut per-page load time by 50-80%.
+        def _block_unnecessary(route):
+            if route.request.resource_type in (
+                "image", "media", "font", "stylesheet",
+                "websocket", "eventsource",
+            ):
+                route.abort()
+            else:
+                route.continue_()
+        page.route("**/*", _block_unnecessary)
+
         # ── Phase 1: collect sitter IDs, closest wards first ───────────────
         for city_id, ward_name, ward_dist in ward_order:
             print(f"[ward] {ward_name} ({ward_dist:.1f} km, city_id={city_id})")
