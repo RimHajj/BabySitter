@@ -744,21 +744,16 @@ def main():
             print(f"  -> {len(pairs)} entries, {len(seen_ids)} unique total")
             time.sleep(1)
 
-        # ── Phase 2: scrape profiles selectively ───────────────────────────
-        # - Known sitters >5km: skip entirely (distance won't change, won't email)
-        # - Known sitters <=5km: scrape for fresh availability only
-        # - New sitters: scrape to geocode, then store if <=5km
+        # ── Phase 2: scrape all profiles found in listings ─────────────────
+        # Every sitter on the listing already serves a target ward, so distance
+        # from their home is irrelevant — they come to you. Scrape all of them
+        # for fresh availability every run.
         all_sids = list(seen_ids.keys())
-        new_sids      = [s for s in all_sids if not is_known(conn, s)]
-        nearby_known  = [s for s in all_sids if is_known(conn, s) and
-                         conn.execute("SELECT distance_km FROM sitters WHERE id=?",
-                                      (s,)).fetchone()[0] is not None and
-                         conn.execute("SELECT distance_km FROM sitters WHERE id=?",
-                                      (s,)).fetchone()[0] <= 5.0]
-        to_scrape = new_sids + nearby_known
+        new_sids   = [s for s in all_sids if not is_known(conn, s)]
+        known_sids = [s for s in all_sids if is_known(conn, s)]
+        to_scrape  = new_sids + known_sids
         print(f"\n[profiles] scraping {len(to_scrape)} profiles "
-              f"({len(new_sids)} new, {len(nearby_known)} known within 5km, "
-              f"{len(all_sids) - len(to_scrape)} far sitters skipped)")
+              f"({len(new_sids)} new, {len(known_sids)} known)")
 
         notify_candidates: list[dict] = []
 
@@ -879,9 +874,9 @@ def main():
                 if v in ("available", "partial")
             )
 
-            # Notify when: sitter within 5km AND has availability AND
+            # Notify when: sitter serves a target ward AND has availability AND
             # (first time seen  OR  calendar newly opened up  OR  --test)
-            if dist is not None and dist <= 5.0 and has_avail and (is_new or newly_available or args.test):
+            if has_avail and (is_new or newly_available or args.test):
                 notify_candidates.append({
                     "tagline": conn.execute(
                         "SELECT tagline FROM sitters WHERE id=?", (sid,)
