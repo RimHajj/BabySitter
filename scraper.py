@@ -313,19 +313,11 @@ def scrape_profile(page, sid: int, verbose: bool) -> dict | None:
     url = f"{BASE}/sitters/{sid}?purpose=babysitter&state_id=13000"
     for attempt in range(3):
         try:
-            page.goto(url, timeout=30_000, wait_until="networkidle")
-            page.evaluate("""async () => {
-                const step = 300;
-                for (let y = 0; y < document.body.scrollHeight; y += step) {
-                    window.scrollTo(0, y);
-                    await new Promise(r => setTimeout(r, 80));
-                }
-                document.querySelectorAll('img[data-src]').forEach(img => {
-                    img.src = img.dataset.src;
-                    if (img.dataset.srcset) img.srcset = img.dataset.srcset;
-                });
-            }""")
-            page.wait_for_timeout(1_500)
+            # domcontentloaded is enough — calendar HTML is server-rendered,
+            # no need to wait for networkidle (saves 10-25s per profile).
+            page.goto(url, timeout=15_000, wait_until="domcontentloaded")
+            # Brief pause for any synchronous JS to apply classes to the DOM.
+            page.wait_for_timeout(500)
             break
         except Exception as e:
             if verbose:
@@ -888,7 +880,7 @@ def main():
                     "profile_url": profile_url,
                 })
 
-            time.sleep(1.5)
+            time.sleep(0.5)
 
         browser.close()
 
