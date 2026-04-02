@@ -203,6 +203,11 @@ def parse_time_range(text: str) -> str | None:
 
 def matches_23_wards(location_text: str, service_area: str,
                      self_intro: str) -> tuple[bool, str]:
+    # Sitter's home location must be in Tokyo.
+    # Mentions of 東京都 in training program names or self-intro don't count.
+    if location_text and "東京都" not in location_text:
+        return False, f"home not in Tokyo: {location_text}"
+
     combined = f"{location_text or ''} {service_area or ''} {self_intro or ''}"
     matched = [w for w in WARD_NAMES if w in combined]
     if matched:
