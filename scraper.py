@@ -749,6 +749,25 @@ def main():
                 route.continue_()
         page.route("**/*", _block_unnecessary)
 
+        # ── Login ─────────────────────────────────────────────────────────────
+        # Calendar data is only server-rendered when logged in.
+        # Without login every profile shows an empty calendar.
+        smartsitter_email    = os.environ.get("SMARTSITTER_EMAIL", "")
+        smartsitter_password = os.environ.get("SMARTSITTER_PASSWORD", "")
+        if smartsitter_email and smartsitter_password:
+            print("[login] signing in to smartsitter.jp …")
+            page.goto("https://smartsitter.jp/users/sign_in",
+                      timeout=20_000, wait_until="domcontentloaded")
+            page.wait_for_timeout(1000)
+            page.fill('input[name*="email"]', smartsitter_email)
+            page.fill('input[type="password"]', smartsitter_password)
+            page.click('input[type="submit"], button[type="submit"]')
+            page.wait_for_timeout(3000)
+            print(f"[login] landed on {page.url}")
+        else:
+            print("[login] SMARTSITTER_EMAIL / SMARTSITTER_PASSWORD not set — "
+                  "calendar data will be empty")
+
         # ── Phase 1: collect sitter IDs, closest wards first ───────────────
         for city_id, ward_name, ward_dist in ward_order:
             print(f"[ward] {ward_name} ({ward_dist:.1f} km, city_id={city_id})")

@@ -33,6 +33,8 @@ jobs:
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SMARTSITTER_EMAIL: ${{ secrets.SMARTSITTER_EMAIL }}
+          SMARTSITTER_PASSWORD: ${{ secrets.SMARTSITTER_PASSWORD }}
         run: python scraper.py --ward 中央区 --test
 
       - name: Commit updated database
