@@ -232,10 +232,8 @@ def collect_sitter_ids_from_listing(
             break
         url = (f"{BASE}/sitters?purpose=babysitter"
                f"&state_id=13000&city_id={city_id}&accepting_orders=true&page={pg}")
-        if verbose:
-            print(f"  [list] {ward_name} p{pg}: {url}")
-        elif pg % 10 == 0:
-            print(f"  [list] {ward_name} page {pg}…", flush=True)
+        if not verbose:
+            print(f"  [list] {ward_name} p{pg} …", flush=True)
         loaded = False
         for attempt in range(3):
             try:
@@ -297,9 +295,8 @@ def collect_sitter_ids_from_listing(
             results.append((sid, tagline))
             found += 1
 
-        if verbose or pg % 10 == 0:
-            print(f"  [list] p{pg}: {found} sitters ({skipped_inactive} inactive skipped)",
-                  flush=True)
+        print(f"  [list] p{pg}: {found} added, {skipped_inactive} inactive, "
+              f"{len(results)} total so far", flush=True)
 
         # Stop when the page returned no sitter cards at all.
         if total_cards == 0:
