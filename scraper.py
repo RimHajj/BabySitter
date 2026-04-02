@@ -226,14 +226,16 @@ def collect_sitter_ids_from_listing(
     """Return [(sitter_id, tagline), ...] from all listing pages for one ward."""
     results: list[tuple[int, str]] = []
     pg = 1
+    total_pages: int | None = None
     ward_name = TOKYO_23_WARDS.get(city_id, str(city_id))
     while True:
         if max_pages and pg > max_pages:
             break
         url = (f"{BASE}/sitters?purpose=babysitter"
                f"&state_id=13000&city_id={city_id}&accepting_orders=true&page={pg}")
+        pg_label = f"p{pg}/{total_pages}" if total_pages else f"p{pg}"
         if not verbose:
-            print(f"  [list] {ward_name} p{pg} …", flush=True)
+            print(f"  [list] {ward_name} {pg_label} …", flush=True)
         loaded = False
         for attempt in range(3):
             try:
@@ -249,6 +251,20 @@ def collect_sitter_ids_from_listing(
             if verbose:
                 print(f"  [list] giving up on {url}, skipping ward")
             break
+
+        # On the first page, read the highest page number from pagination links
+        if pg == 1:
+            page_nums = page.evaluate("""() => {
+                const nums = [];
+                document.querySelectorAll('a[href*="page="]').forEach(a => {
+                    const m = a.href.match(/page=(\\d+)/);
+                    if (m) nums.push(parseInt(m[1]));
+                });
+                return nums;
+            }""")
+            if page_nums:
+                total_pages = max(page_nums)
+                print(f"  [list] {ward_name}: {total_pages} pages total", flush=True)
 
         INACTIVE_MARKERS = ("休止", "受付停止", "受け付けておりません", "お休み中")
 
@@ -295,7 +311,7 @@ def collect_sitter_ids_from_listing(
             results.append((sid, tagline))
             found += 1
 
-        print(f"  [list] p{pg}: {found} added, {skipped_inactive} inactive, "
+        print(f"  [list] {pg_label}: {found} added, {skipped_inactive} inactive, "
               f"{len(results)} total so far", flush=True)
 
         # Stop when the page returned no sitter cards at all.
