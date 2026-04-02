@@ -298,6 +298,7 @@ def collect_sitter_ids_from_listing(
         total_cards = len(card_data or [])
         found = 0
         skipped_inactive = 0
+        skipped_non_tokyo = 0
         for item in (card_data or []):
             sid       = item["sid"]
             tagline   = item["tagline"]
@@ -308,11 +309,17 @@ def collect_sitter_ids_from_listing(
                 if verbose:
                     print(f"    skip inactive sitter {sid}")
                 continue
+            # Skip sitters whose card shows a non-Tokyo home location
+            if "東京都" not in card_text:
+                skipped_non_tokyo += 1
+                if verbose:
+                    print(f"    skip non-Tokyo sitter {sid}")
+                continue
             results.append((sid, tagline))
             found += 1
 
-        print(f"  [list] {pg_label}: {found} added, {skipped_inactive} inactive, "
-              f"{len(results)} total so far", flush=True)
+        print(f"  [list] {pg_label}: {found} added, {skipped_non_tokyo} non-Tokyo, "
+              f"{skipped_inactive} inactive, {len(results)} total so far", flush=True)
 
         # Stop when the page returned no sitter cards at all.
         if total_cards == 0:
