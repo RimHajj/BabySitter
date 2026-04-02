@@ -811,9 +811,13 @@ def main():
                     location_text, service_area, self_intro
                 )
                 listing_wards = ward_membership.get(sid, set())
+                # Override only if Tokyo-based (or location unknown).
+                # A sitter from 茨城県 can self-register to serve 中央区 but
+                # we don't want to include them just because they're in the listing.
                 if not ward_ok and listing_wards & WARD_NAMES:
-                    ward_ok = True
-                    ward_reason = f"listed under: {', '.join(listing_wards & WARD_NAMES)}"
+                    if not location_text or "東京都" in location_text:
+                        ward_ok = True
+                        ward_reason = f"listed under: {', '.join(listing_wards & WARD_NAMES)}"
 
                 if not ward_ok:
                     if args.verbose:
